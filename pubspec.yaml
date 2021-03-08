@@ -19,9 +19,34 @@ dev_dependencies:
 dependency_overrides:
   kernel:
     git:
-      url: git@gitee.com:idouziAndroid/alsdk.git
+      url: https://github.com/alibaba-flutter/sdk.git
       ref: stable/v1.22.3
       path: pkg/kernel
+  vm:
+    git:
+      url: https://github.com/alibaba-flutter/sdk.git
+      ref: stable/v1.22.3
+      path: pkg/vm
+  frontend_server:
+    git:
+      url: https://github.com/alibaba-flutter/sdk.git
+      ref: stable/v1.22.3
+      path: pkg/frontend_server
+  front_end:
+    git:
+      url: https://github.com/alibaba-flutter/sdk.git
+      ref: stable/v1.22.3
+      path: pkg/front_end
+  dev_compiler:
+    git:
+      url: https://github.com/alibaba-flutter/sdk.git
+      ref: stable/v1.22.3
+      path: pkg/dev_compiler
+  package_config:
+    git:
+      url: https://github.com/alibaba-flutter/sdk.git
+      ref: stable/v1.22.3
+      path: third_party/pkg_tested/package_config
   # To add assets to your package, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
@@ -34,7 +59,7 @@ dependency_overrides:
   # https://flutter.dev/assets-and-images/#resolution-aware.
 
   # To add custom fonts to your package, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
+  # in this "flutter" section. Each entffry in this list should have a
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:

@@ -1,3 +1,4 @@
+import 'package:example/page1.dart';
 import 'package:flutter/material.dart';
 import 'package:ftd/ftd.dart';
 
@@ -100,7 +101,10 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: (){
-          _incrementCounter('p1',2);
+          // _incrementCounter('p1',2);\
+          Navigator.push(context, MaterialPageRoute(builder: (context) {
+            return Page1();
+          }));
         },
         tooltip: 'Increment',
         child: Icon(Icons.add),

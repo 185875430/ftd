@@ -27,6 +27,9 @@ class Stores{
   ///method isDoubleClick reference
   static Reference isDoubleClickReference;
 
+  ///method  pageTrack reference
+  static Reference pageTrackReference;
+
   ///a
   void noUse(){
 
