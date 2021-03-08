@@ -5,6 +5,7 @@ import 'package:kernel/ast.dart';
 import 'package:vm/target/flutter.dart';
 import 'click_shake_transform.dart';
 import 'function_log_transform.dart';
+import 'route_transform.dart';
 import '../tool/store_utils.dart';
 
 class FtTransformer extends FlutterProgramTransformer {
@@ -15,9 +16,11 @@ class FtTransformer extends FlutterProgramTransformer {
 
   @override
   void transform(Component component) {
+    print("yongyuan.wu transform start 11111111");
     getInfoForStore(component);
     component.visitChildren(FunctionDebugTransform());
     component.visitChildren(ClickShakeTransform());
+    component.visitChildren(RouteTransform());
   }
 
   void getInfoForStore(Component component){
@@ -33,8 +36,18 @@ class FtTransformer extends FlutterProgramTransformer {
     ];
     for (Library library in concatLibraries) {
       if(library.name == 'shake_handle_help'){
+        print("yongyuan.wu shake_handle_help");
         for(Procedure procedure in library.procedures){
           Stores.isDoubleClickReference = procedure.reference;
+        }
+      }
+      if(library.name == 'track_plugin'){
+        print("yongyuan.wu track_plugin");
+        for(Procedure procedure in library.procedures){
+          print("yongyuan.wu track_plugin ${procedure.name.name}");
+          if(procedure.name.name == 'pageTrackInstallation'){
+            Stores.pageTrackReference = procedure.reference;
+          }
         }
       }
       if(library.name == 'dart.core'){

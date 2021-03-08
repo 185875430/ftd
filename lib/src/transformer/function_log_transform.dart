@@ -5,19 +5,201 @@ import 'package:front_end/src/fasta/kernel/internal_ast.dart';
 import '../tool/store_utils.dart';
 
 
-///aaa
+///埋点插桩
 class FunctionDebugTransform extends RecursiveVisitor<void> {
+  static String kAopAnnotationClassAspect = 'PageId';
+  static String kImportUriAopAspect = 'package:ftd/src/annotation/page_id.dart';
+  String _methodName;
+  String _pageId = '';
 
-   String _methodName;
-  @override
-  void visitClass(Class node) {
-    super.visitClass(node);
+  bool checkIfClassEnableAspectd(List<Expression> annotations) {
+    bool enabled = false;
+    for (Expression annotation in annotations) {
+      //Release Mode
+      if (annotation is ConstantExpression) {
+        final ConstantExpression constantExpression = annotation;
+        final Constant constant = constantExpression.constant;
+        if (constant is InstanceConstant) {
+          final InstanceConstant instanceConstant = constant;
+          final Class instanceClass = instanceConstant.classReference.node;
+          if (instanceClass.name == kAopAnnotationClassAspect &&
+              kImportUriAopAspect ==
+                  (instanceClass?.parent as Library)?.importUri.toString()) {
+            enabled = true;
+            print(
+                "yongyuan.wu,checkIfClassEnableAspectd ConstantExpression ${instanceClass}");
+            break;
+          }
+        }
+      }
+      //Debug Mode
+      else if (annotation is ConstructorInvocation) {
+        final ConstructorInvocation constructorInvocation = annotation;
+        final Class cls = constructorInvocation.targetReference.node?.parent;
+        if (cls == null) {
+          continue;
+        }
+        final Library library = cls?.parent;
+        if (cls.name == kAopAnnotationClassAspect &&
+            library.importUri.toString() == kImportUriAopAspect) {
+          enabled = true;
+          argumentsFromAnnotations(constructorInvocation);
+          break;
+        }
+      }
+    }
+    return enabled;
+  }
+
+  void argumentsFromAnnotations(ConstructorInvocation node){
+     node.arguments.named.forEach((now) {
+       final StringLiteral stringLiteral = now?.value;
+       _pageId = stringLiteral?.value;
+     });
+   }
+
+  StringBuffer pathGenerator(ConstructorInvocation node) {
+    StringBuffer path = new StringBuffer();
+    TreeNode curNode = node;
+    while (null != curNode) {
+      if (curNode.runtimeType == ConstructorInvocation) {
+        path.write(((curNode as ConstructorInvocation)
+                ?.targetReference
+                ?.node
+                ?.parent as Class)
+            .name);
+        path.write('//');
+      }
+      if (curNode.runtimeType == Class) {
+        path.write((curNode as Class).name);
+        path.write('//');
+      }
+      if (curNode.runtimeType == Library) {
+        path.write((curNode as Library).name);
+      }
+      curNode = curNode.parent;
+    }
+    return path;
   }
 
   @override
-  void visitProcedure(Procedure node) {
+  void visitClass(Class cls) {
+    String clsName = cls.name;
+    bool matches = false;
+    matches = checkIfClassEnableAspectd(cls.annotations);
+    if (matches) {
+      cls.visitChildren(this);
+    }
+  }
 
-//    String procedureName = node.name.name;
+  @override
+  void visitConstructor(Constructor constructor) {
+    Class cls = constructor.parent;
+    print("yongyuan.wu  visitConstructor .cls 1 ${cls.name}");
+
+    Statement body;
+    if (constructor.function is FunctionNode) {
+      body = constructor.function.body;
+      if (body is EmptyStatement) {
+        final List<Statement> statements = <Statement>[body];
+        body = Block(statements);
+        constructor.function.body = body;
+      }
+    } else if (constructor.function is Block) {
+      body = constructor.function as Statement;
+    }
+    if (body is Block) {
+      final List<Statement> statements = body.statements;
+      final int len = statements.length;
+      StringBuffer path = new StringBuffer();
+      path.write(cls.name);
+      path.write(':');
+      final Library library = cls?.parent;
+      String libraryNodeString = library.reference.node.toString();
+      if (libraryNodeString != null) {
+        // package:example/page2.dart
+        List libraryName = libraryNodeString.split(':');
+        if (libraryName.length == 2) {
+          path.write(libraryName[1]);
+        }
+      }
+      final Arguments arguments = ArgumentsImpl(<Expression>[
+        StringLiteral(_pageId ?? ''),
+        StringLiteral(path.toString() ?? '')
+      ]);
+      final StaticInvocation staticInvocation =
+          StaticInvocation.byReference(Stores.pageTrackReference, arguments);
+      ExpressionStatement expressionStatement =
+          ExpressionStatement(staticInvocation);
+      if (len == 0) {
+        final List<Statement> tmpStatements = <Statement>[];
+        tmpStatements.add(expressionStatement);
+        body.addStatement(Block(tmpStatements));
+      } else {
+        for (int i = 0; i < len; i++) {
+          final Statement statement = statements[i];
+          Node nodeToVisitRecursively = getNodeToVisitRecursively(statement);
+          if (nodeToVisitRecursively != null) {
+            visitNode(nodeToVisitRecursively);
+            continue;
+          }
+          final List<Statement> tmpStatements = <Statement>[];
+          tmpStatements.add(expressionStatement);
+          statements.insertAll(0, tmpStatements);
+        }
+      }
+    }
+  }
+
+  void visitNode(Object node) {
+    if (node is Constructor) {
+      visitConstructor(node);
+    } else if (node is Procedure) {
+      visitProcedure(node);
+    } else if (node is LabeledStatement) {
+      visitLabeledStatement(node);
+    } else if (node is FunctionNode) {
+      visitFunctionNode(node);
+    } else if (node is Block) {
+      visitBlock(node);
+    }
+  }
+
+  static Node getNodeToVisitRecursively(Object statement) {
+    if (statement is FunctionDeclaration) {
+      return statement.function;
+    }
+    if (statement is LabeledStatement) {
+      return statement.body;
+    }
+    if (statement is IfStatement) {
+      return statement.then;
+    }
+    if (statement is ForInStatement) {
+      return statement.body;
+    }
+    if (statement is ForStatement) {
+      return statement.body;
+    }
+    return null;
+  }
+
+  static int getLineNumBySourceAndOffset(Source source, int fileOffset) {
+    final int lineNum = source.lineStarts.length;
+    for (int i = 0; i < lineNum; i++) {
+      final int lineStart = source.lineStarts[i];
+      if (fileOffset >= lineStart &&
+          (i == lineNum - 1 || fileOffset < source.lineStarts[i + 1])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+
+  @override
+  void visitProcedure(Procedure node) {
+   String procedureName = node.name.name;
 //    if(procedureName == 'testAsync'){
 //     ConstructorInvocation invocation =  node.annotations[0];
 //      ConstructorInvocation constructorInvocation = invocation.arguments.named[0].value;
